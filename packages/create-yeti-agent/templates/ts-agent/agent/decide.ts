@@ -1,4 +1,4 @@
-import type { Snapshot, Decision } from '@yetifi/arena-runtime';
+import type { Snapshot, Decision } from 'yetifi-arena-runtime';
 
 // Stub: do nothing every cycle. Returning [] tells the runtime to skip
 // submission; the agent holds whatever positions it already has. Replace

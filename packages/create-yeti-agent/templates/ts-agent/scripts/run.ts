@@ -1,4 +1,4 @@
-import { runFromCwd } from '@yetifi/arena-runtime';
+import { runFromCwd } from 'yetifi-arena-runtime';
 import agent from '../agent/config';
 
 runFromCwd(agent, {

@@ -1,4 +1,4 @@
-import { defineAgent } from '@yetifi/arena-runtime';
+import { defineAgent } from 'yetifi-arena-runtime';
 import decide from './decide';
 
 export default defineAgent({

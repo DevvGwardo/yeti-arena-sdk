@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 import type { Snapshot, Decision } from './types';
 
-const PKG_NAME = '@yetifi/arena-runtime';
+const PKG_NAME = 'yetifi-arena-runtime';
 const PKG_VERSION = '0.1.0';
 export const SDK_HEADER = 'x-yeti-sdk';
 export const SDK_HEADER_VALUE = `${PKG_NAME}@${PKG_VERSION}`;

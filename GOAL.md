@@ -6,7 +6,7 @@ Ship `npx create-yeti-agent <name>` (and `uvx create-yeti-agent <name>`) as the 
 
 | | Status |
 |---|---|
-| TS runtime `@yetifi/arena-runtime` | ✅ built, tested, smoke-verified |
+| TS runtime `yetifi-arena-runtime` | ✅ built, tested, smoke-verified |
 | TS scaffolder `create-yeti-agent` (npx) | ✅ built, smoke-verified end-to-end |
 | Python runtime `yetifi-arena` | ✅ built, 10/10 unit tests, smoke-verified |
 | Python scaffolder `create-yeti-agent` (uvx) | ✅ built, smoke-verified end-to-end |
@@ -46,7 +46,7 @@ Ship `npx create-yeti-agent <name>` (and `uvx create-yeti-agent <name>`) as the 
 ├── README.md
 ├── package.json                           npm workspace root
 └── packages/
-    ├── arena-runtime-ts/                  → publish as @yetifi/arena-runtime
+    ├── arena-runtime-ts/                  → publish as yetifi-arena-runtime
     │   ├── package.json
     │   ├── tsconfig.json
     │   └── src/

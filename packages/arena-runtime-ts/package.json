@@ -1,5 +1,5 @@
 {
-  "name": "@yetifi/arena-runtime",
+  "name": "yetifi-arena-runtime",
   "version": "0.1.0",
   "description": "Runtime SDK for YetiFi trading-arena agents",
   "license": "MIT",

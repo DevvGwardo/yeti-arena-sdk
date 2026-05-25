@@ -7,7 +7,7 @@ describe('SDK header contract', () => {
   });
 
   test('header value follows <pkg>@<version> shape the backend gate validates', () => {
-    expect(SDK_HEADER_VALUE).toMatch(/^@yetifi\/arena-runtime@\d+\.\d+\.\d+/);
+    expect(SDK_HEADER_VALUE).toMatch(/^yetifi-arena-runtime@\d+\.\d+\.\d+/);
   });
 });
 

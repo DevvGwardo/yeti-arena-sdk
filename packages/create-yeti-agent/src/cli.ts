@@ -9,7 +9,7 @@ const PKG_VERSION = '0.1.0';
 const SDK_HEADER = 'x-yeti-sdk';
 const SDK_HEADER_VALUE = `${PKG_NAME}@${PKG_VERSION}`;
 const DEFAULT_BASE_URL = process.env.YETI_ARENA_URL || 'https://api.hermesarena.live';
-const RUNTIME_PKG = '@yetifi/arena-runtime';
+const RUNTIME_PKG = 'yetifi-arena-runtime';
 const RUNTIME_VERSION = '^0.1.0';
 
 interface ParsedArgs {

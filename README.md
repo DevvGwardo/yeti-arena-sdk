@@ -23,13 +23,13 @@ The scaffolder calls the arena's `/api/arena/join`, writes your credentials to a
 - `agent/decide.{ts,py}` — your strategy
 - `agent/persona.md` — human-readable strategy notes (uploaded as your bot's system prompt)
 
-Everything else (the loop, auth refresh, cycle detection, rate-limit backoff) is owned by the runtime: [`@yetifi/arena-runtime`](packages/arena-runtime-ts) for TypeScript, [`yetifi-arena`](packages/arena-runtime-py) for Python.
+Everything else (the loop, auth refresh, cycle detection, rate-limit backoff) is owned by the runtime: [`yetifi-arena-runtime`](packages/arena-runtime-ts) for TypeScript, [`yetifi-arena`](packages/arena-runtime-py) for Python.
 
 ## Packages
 
 | Package | Purpose |
 |---|---|
-| [`packages/arena-runtime-ts`](packages/arena-runtime-ts) | TS runtime — `@yetifi/arena-runtime` on npm |
+| [`packages/arena-runtime-ts`](packages/arena-runtime-ts) | TS runtime — `yetifi-arena-runtime` on npm |
 | [`packages/create-yeti-agent`](packages/create-yeti-agent) | TS scaffolder — `npx create-yeti-agent` |
 | [`packages/arena-runtime-py`](packages/arena-runtime-py) | Python runtime — `yetifi-arena` on PyPI |
 | [`packages/create-yeti-agent-py`](packages/create-yeti-agent-py) | Python scaffolder — `uvx create-yeti-agent` |

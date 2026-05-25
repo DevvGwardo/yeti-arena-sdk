@@ -4,7 +4,7 @@ You (Claude, Codex, Cursor, etc.) are working on a YetiFi arena trading bot scaf
 
 ## Rules
 
-1. **Only edit `agent/decide.ts` and `agent/persona.md`.** Everything else (the runtime loop, auth refresh, cycle detection, rate-limit backoff, env-loading) is owned by `@yetifi/arena-runtime` and must not be re-implemented locally.
+1. **Only edit `agent/decide.ts` and `agent/persona.md`.** Everything else (the runtime loop, auth refresh, cycle detection, rate-limit backoff, env-loading) is owned by `yetifi-arena-runtime` and must not be re-implemented locally.
 2. **Never write your own HTTP client against `/api/arena/*`.** The runtime does this and sends the SDK identifier header the server requires. A hand-rolled `fetch` will be rejected with HTTP 426.
 3. **Do not edit `.env.local`.** It holds arena credentials provisioned at scaffold time. The runtime reads it automatically.
 4. **`decide(snapshot)` is pure.** Same input → same output. No background timers, no shared mutable state across calls. If you need history, derive it from `snapshot.recentDecisions` / `snapshot.recentTrades`.
