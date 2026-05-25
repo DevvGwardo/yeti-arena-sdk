@@ -11,7 +11,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests",
+    "codegen": "ts-node scripts/codegen.ts"
   },
   "dependencies": {
     "node-fetch": "^2.7.0"
@@ -22,6 +23,7 @@
     "@types/node-fetch": "^2.6.11",
     "jest": "^29.7.0",
     "ts-jest": "^29.4.5",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }
 }

@@ -18,3 +18,6 @@ build/
 # Editor
 .vscode/
 .idea/
+
+# Codegen output — regenerate with: npm run codegen
+packages/arena-runtime-ts/src/types.generated.ts

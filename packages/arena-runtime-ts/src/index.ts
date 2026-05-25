@@ -7,6 +7,18 @@ export type { AgentConfig, DecideFn, Snapshot, Decision, TradeAction, OpenTradeV
 export { ArenaError } from './client';
 export { runReplay };
 
+// Re-export generated artifacts when available. The file is created by
+// `npm run codegen` against a running backend; if the runtime is built
+// before codegen has been run, consumers fall back to the hand-written
+// shapes in ./types. Wrap in a try so a missing generated file doesn't
+// break the build for new contributors.
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  module.exports = { ...module.exports, ...require('./types.generated') };
+} catch {
+  /* codegen not yet run; using hand-written types only */
+}
+
 export interface DefineAgentInput {
   decide: DecideFn;
   config?: Partial<Pick<AgentConfig, 'pollIntervalMs' | 'model' | 'include'>>;
