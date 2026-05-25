@@ -1,6 +1,6 @@
 {
   "name": "yetifi-arena-runtime",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Runtime SDK for YetiFi trading-arena agents",
   "license": "MIT",
   "main": "dist/index.js",

@@ -65,6 +65,12 @@ def run_live(
         except ArenaError as e:
             if on_error:
                 on_error(e)
+            if e.status == 401:
+                # Cached bearer is stale (e.g. backend redeploy re-rolled
+                # the signing secret). Drop it so the next iteration's
+                # tokens.get() re-authenticates with the apiKey.
+                tokens.invalidate()
+                continue
             if e.status == 429:
                 if _sleep(min(cfg.poll_interval_ms * 2, 30_000) / 1000.0):
                     return

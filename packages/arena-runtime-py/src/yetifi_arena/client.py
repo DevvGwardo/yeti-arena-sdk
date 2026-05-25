@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence
 import requests
 
 PKG_NAME = "yetifi-arena"
-PKG_VERSION = "0.1.0"
+PKG_VERSION = "0.1.1"
 SDK_HEADER = "x-yeti-sdk"
 SDK_HEADER_VALUE = f"{PKG_NAME}@{PKG_VERSION}"
 

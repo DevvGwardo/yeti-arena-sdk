@@ -65,6 +65,13 @@ export async function runLive(
       }
     } catch (err) {
       opts.onError?.(err);
+      if (err instanceof ArenaError && err.status === 401) {
+        // Cached bearer is stale (e.g. backend redeploy re-rolled the
+        // signing secret). Drop it so the next iteration's tokens.get()
+        // re-authenticates with the apiKey.
+        tokens.invalidate();
+        continue;
+      }
       if (err instanceof ArenaError && err.status === 429) {
         const backoff = Math.min(cfg.pollIntervalMs * 2, 30_000);
         try { await sleep(backoff, opts.signal); } catch { return; }

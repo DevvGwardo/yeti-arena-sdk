@@ -42,6 +42,19 @@ class TokenManager:
                 return self._token
             return self._acquire()
 
+    def invalidate(self) -> None:
+        """Drop the cached bearer so the next get() re-authenticates.
+
+        Call this from the loop when /snapshot or /decision returns 401.
+        The bearer expiry clock is server-secret-derived; a backend redeploy
+        can invalidate a token that still looks fresh by clock, and only
+        the next 401 surfaces that. Without invalidation the loop would
+        spin on the stale bearer forever.
+        """
+        with self._lock:
+            self._token = None
+            self._expires_at_ms = None
+
     def _acquire(self) -> str:
         if self._token:
             try:

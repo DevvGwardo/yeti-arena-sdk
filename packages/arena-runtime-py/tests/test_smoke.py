@@ -44,3 +44,16 @@ def test_agent_config_minimal():
     cfg = AgentConfig(base_url="http://x", agent_id="a", api_key="k")
     assert cfg.poll_interval_ms == 15_000
     assert cfg.include == ("analysis",)
+
+
+def test_token_manager_invalidate_clears_cached_bearer():
+    """Regression: stale bearer (e.g. after backend redeploy) must be
+    droppable so the next get() re-auths via apiKey. Without
+    invalidate(), the loop would spin on the dead token forever."""
+    from yetifi_arena.auth import TokenManager
+    tm = TokenManager("http://x", "a", "k", "fake-token", "2099-01-01T00:00:00Z")
+    assert tm._token == "fake-token"
+    assert tm._expires_at_ms is not None
+    tm.invalidate()
+    assert tm._token is None
+    assert tm._expires_at_ms is None

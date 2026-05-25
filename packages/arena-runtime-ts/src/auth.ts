@@ -34,6 +34,17 @@ export class TokenManager {
     }
   }
 
+  /**
+   * Drop the cached bearer so the next get() re-authenticates. Call this
+   * from the loop when /snapshot or /decision returns 401. The expiry
+   * clock is server-secret-derived; a backend redeploy can invalidate a
+   * token that still looks fresh, and only the next 401 reveals it.
+   */
+  invalidate(): void {
+    this.token = undefined;
+    this.expiresAtMs = undefined;
+  }
+
   private async acquire(): Promise<string> {
     if (this.token) {
       try {
