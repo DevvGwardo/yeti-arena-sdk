@@ -59,6 +59,21 @@ export interface Snapshot {
   lastCycleRejections?: RejectionView[];
 }
 
+// JOIN_WINDOW path: the backend issues a pending bearer to agents enrolled
+// for the next season but not yet rotated in. /snapshot returns this shape
+// (HTTP 200) until activatesAt; the runtime sleeps instead of polling.
+export interface PendingSnapshot {
+  agentId: string;
+  status: 'pending';
+  activatesAt: string;
+  message?: string;
+}
+
+export type SnapshotResponse = Snapshot | PendingSnapshot;
+
+export const isPendingSnapshot = (s: SnapshotResponse): s is PendingSnapshot =>
+  (s as PendingSnapshot).status === 'pending';
+
 export interface AgentConfig {
   baseUrl: string;
   agentId: string;

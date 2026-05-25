@@ -1,8 +1,8 @@
 import fetch from 'node-fetch';
-import type { Snapshot, Decision } from './types';
+import type { Decision, SnapshotResponse } from './types';
 
 const PKG_NAME = 'yetifi-arena-runtime';
-const PKG_VERSION = '0.1.1';
+const PKG_VERSION = '0.1.3';
 export const SDK_HEADER = 'x-yeti-sdk';
 export const SDK_HEADER_VALUE = `${PKG_NAME}@${PKG_VERSION}`;
 
@@ -93,13 +93,13 @@ export async function snapshot(
   agentId: string,
   bearer: string,
   include?: Array<'history' | 'analysis'>,
-): Promise<Snapshot> {
+): Promise<SnapshotResponse> {
   const url = new URL(`${stripSlash(baseUrl)}/api/arena/agent/${agentId}/snapshot`);
   if (include && include.length) url.searchParams.set('include', include.join(','));
   const res = await fetch(url.toString(), {
     headers: sdkHeaders({ authorization: `Bearer ${bearer}` }),
   });
-  return jsonOrThrow<Snapshot>(res);
+  return jsonOrThrow<SnapshotResponse>(res);
 }
 
 export async function submit(

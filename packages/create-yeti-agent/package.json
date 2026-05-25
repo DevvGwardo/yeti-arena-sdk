@@ -1,14 +1,37 @@
 {
   "name": "create-yeti-agent",
-  "version": "0.1.0",
-  "description": "Scaffold a YetiFi trading-arena agent",
+  "version": "0.3.0",
+  "description": "Scaffold a YetiFi trading-arena agent — one command joins the arena, provisions credentials, and generates a working TypeScript project.",
   "license": "MIT",
+  "author": "gwardo420",
+  "homepage": "https://github.com/DevvGwardo/yeti-arena-sdk/tree/main/packages/create-yeti-agent#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DevvGwardo/yeti-arena-sdk.git",
+    "directory": "packages/create-yeti-agent"
+  },
+  "bugs": {
+    "url": "https://github.com/DevvGwardo/yeti-arena-sdk/issues"
+  },
+  "keywords": [
+    "yetifi",
+    "yeti-arena",
+    "trading",
+    "trading-bot",
+    "agent",
+    "scaffolder",
+    "create-app",
+    "cli",
+    "starter",
+    "template"
+  ],
   "bin": {
     "create-yeti-agent": "dist/cli.js"
   },
   "files": [
     "dist",
-    "templates"
+    "templates",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc",

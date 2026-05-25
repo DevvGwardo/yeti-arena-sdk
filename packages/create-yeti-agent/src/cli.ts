@@ -3,20 +3,22 @@ import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import fetch from 'node-fetch';
+import { detectProvider, overrideProvider, Detection, Provider } from './detect';
 
 const PKG_NAME = 'create-yeti-agent';
-const PKG_VERSION = '0.1.0';
+const PKG_VERSION = '0.3.0';
 const SDK_HEADER = 'x-yeti-sdk';
 const SDK_HEADER_VALUE = `${PKG_NAME}@${PKG_VERSION}`;
 const DEFAULT_BASE_URL = process.env.YETI_ARENA_URL || 'https://api.hermesarena.live';
 const RUNTIME_PKG = 'yetifi-arena-runtime';
-const RUNTIME_VERSION = '^0.1.0';
+const RUNTIME_VERSION = '^0.1.3';
 
 interface ParsedArgs {
   projectName?: string;
   baseUrl: string;
   persona?: string;
   yes: boolean;
+  llm?: string;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -26,6 +28,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     const a = args[i];
     if (a === '--url' || a === '--base-url') out.baseUrl = args[++i] || out.baseUrl;
     else if (a === '--persona') out.persona = args[++i];
+    else if (a === '--llm') out.llm = args[++i];
     else if (a === '--yes' || a === '-y') out.yes = true;
     else if (!a.startsWith('-') && !out.projectName) out.projectName = a;
   }
@@ -61,6 +64,46 @@ function copyTemplate(srcDir: string, destDir: string, vars: Record<string, stri
       fs.writeFileSync(destPath, content);
     }
   }
+}
+
+// Copy the chosen provider's llm.ts on top of the stub that ts-agent ships
+// with. Stub stays the default so a missing provider file still produces a
+// project that compiles and runs (decide.ts gracefully returns []).
+function wireProvider(destDir: string, detection: Detection): void {
+  if (detection.provider === 'stub') return;
+  const src = path.join(__dirname, '..', 'templates', 'llm-providers', `${detection.provider}.ts`);
+  if (!fs.existsSync(src)) {
+    console.warn(`  warning: provider template missing for ${detection.provider} — leaving stub in place`);
+    return;
+  }
+  let body = fs.readFileSync(src, 'utf8');
+  body = body.split('{{LLM_MODEL}}').join(detection.model || detection.provider);
+  fs.writeFileSync(path.join(destDir, 'agent', 'llm.ts'), body);
+}
+
+function describeProvider(d: Detection): string {
+  switch (d.provider) {
+    case 'hermes':    return `Hermes @ ${d.baseUrl} (model ${d.model})`;
+    case 'anthropic': return `Anthropic API (model ${d.model}) — needs ANTHROPIC_API_KEY at runtime`;
+    case 'openai':    return `OpenAI API (model ${d.model}) — needs OPENAI_API_KEY at runtime`;
+    case 'gemini':    return `Google Gemini (model ${d.model}) — needs GEMINI_API_KEY at runtime`;
+    case 'ollama':    return `Ollama @ ${d.baseUrl} (model ${d.model})`;
+    case 'stub':      return 'No LLM detected — decide.ts returns [] (the agent holds positions every cycle)';
+  }
+}
+
+function nextStepsLine(d: Detection, name: string): string {
+  const setup = (() => {
+    switch (d.provider) {
+      case 'hermes':    return '';
+      case 'anthropic': return 'export ANTHROPIC_API_KEY=...\n  ';
+      case 'openai':    return 'export OPENAI_API_KEY=...\n  ';
+      case 'gemini':    return 'export GEMINI_API_KEY=...\n  ';
+      case 'ollama':    return '';
+      case 'stub':      return '# (No LLM wired. Set ANTHROPIC_API_KEY or run a local LLM, then re-scaffold for auto-wiring.)\n  ';
+    }
+  })();
+  return `cd ${name}\n  ${setup}npm install\n  npm run dev`;
 }
 
 async function joinArena(
@@ -132,6 +175,23 @@ async function main(): Promise<void> {
       persona = a || undefined;
     }
 
+    // Detect the trading LLM *before* the network join so failure modes
+    // print cleanly above the join step. --llm <name> overrides detection.
+    console.log('\n→ Detecting trading LLM');
+    let detection: Detection;
+    if (args.llm) {
+      try {
+        detection = overrideProvider(args.llm);
+      } catch (err) {
+        console.error((err as Error).message);
+        process.exit(2);
+      }
+      console.log(`  forced via --llm: ${describeProvider(detection)}`);
+    } else {
+      detection = await detectProvider();
+      console.log(`  ${detection.provider === 'stub' ? '(none found)' : 'found'}: ${describeProvider(detection)}`);
+    }
+
     console.log(`\n→ Joining arena at ${args.baseUrl} as "${name}"`);
     const joined = await joinArena(args.baseUrl, {
       name,
@@ -159,20 +219,46 @@ async function main(): Promise<void> {
       RUNTIME_PKG: RUNTIME_PKG,
       RUNTIME_VERSION: RUNTIME_VERSION,
       PERSONA: persona || '',
+      LLM_PROVIDER: detection.provider,
+      LLM_MODEL: detection.model || '',
+      LLM_DESCRIPTION: describeProvider(detection),
     });
+    wireProvider(dest, detection);
 
-    const envContent = [
+    const envLines = [
       `ARENA_BASE_URL=${args.baseUrl.replace(/\/$/, '')}`,
       `ARENA_AGENT_ID=${joined.agentId}`,
       `ARENA_AGENT_API_KEY=${joined.apiKey}`,
       `ARENA_AGENT_BEARER_TOKEN=${bearerToken}`,
       `ARENA_AGENT_TOKEN_EXPIRES_AT=${bearerExpiresAt}`,
       `ARENA_AGENT_NAME=${name}`,
-      '',
-    ].join('\n');
-    fs.writeFileSync(path.join(dest, '.env.local'), envContent);
+    ];
+    // For local-LLM providers, pin the URL+model in .env.local so the
+    // generated llm.ts has a deterministic default the user can edit
+    // without grepping the source. Cloud providers expect the API key in
+    // ambient env, not .env.local, to keep secrets out of the repo.
+    if (detection.baseUrl) envLines.push(`LLM_BASE_URL=${detection.baseUrl}`);
+    if (detection.model) envLines.push(`LLM_MODEL=${detection.model}`);
+    // Carry the provider's API key into .env.local when one is present in
+    // the scaffolder's env so `npm run dev` works without the user having
+    // to re-export. For Hermes/Ollama (local), this is just a convenience;
+    // for cloud providers, it's the actual auth credential.
+    const KEY_ENV_BY_PROVIDER: Record<Provider, string | null> = {
+      hermes: 'HERMES_API_KEY',
+      anthropic: 'ANTHROPIC_API_KEY',
+      openai: 'OPENAI_API_KEY',
+      gemini: process.env.GEMINI_API_KEY ? 'GEMINI_API_KEY' : 'GOOGLE_API_KEY',
+      ollama: null,
+      stub: null,
+    };
+    const keyEnv = KEY_ENV_BY_PROVIDER[detection.provider];
+    if (keyEnv && process.env[keyEnv]) {
+      envLines.push(`${keyEnv}=${process.env[keyEnv]}`);
+    }
+    envLines.push('');
+    fs.writeFileSync(path.join(dest, '.env.local'), envLines.join('\n'));
 
-    console.log(`\n✓ Done.\n\nNext:\n  cd ${name}\n  npm install\n  npm run dev\n\nThe only files you should edit are agent/decide.ts and agent/persona.md.\nSee AGENT.md in the project root for the contract.`);
+    console.log(`\n✓ Done.\n\nNext:\n  ${nextStepsLine(detection, name)}\n\nWired: ${describeProvider(detection)}.\nEdit agent/decide.ts to tune strategy or agent/llm.ts to swap providers.\nSee AGENTS.md in the project root for the contract.`);
   } finally {
     rl.close();
   }
