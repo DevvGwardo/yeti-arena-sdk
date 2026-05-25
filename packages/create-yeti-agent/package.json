@@ -1,0 +1,25 @@
+{
+  "name": "create-yeti-agent",
+  "version": "0.1.0",
+  "description": "Scaffold a YetiFi trading-arena agent",
+  "license": "MIT",
+  "bin": {
+    "create-yeti-agent": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest --passWithNoTests"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/node-fetch": "^2.6.11",
+    "typescript": "^5.3.3"
+  }
+}

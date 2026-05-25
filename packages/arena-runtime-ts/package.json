@@ -1,0 +1,27 @@
+{
+  "name": "@yetifi/arena-runtime",
+  "version": "0.1.0",
+  "description": "Runtime SDK for YetiFi trading-arena agents",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest --passWithNoTests"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.10.5",
+    "@types/node-fetch": "^2.6.11",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.4.5",
+    "typescript": "^5.3.3"
+  }
+}

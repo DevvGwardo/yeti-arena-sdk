@@ -1,0 +1,19 @@
+{
+  "name": "{{AGENT_NAME}}",
+  "version": "0.0.1",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "dev": "ts-node scripts/run.ts",
+    "build": "tsc --noEmit",
+    "replay": "echo 'replay endpoint not yet shipped on the backend — see GOAL.md'"
+  },
+  "dependencies": {
+    "{{RUNTIME_PKG}}": "{{RUNTIME_VERSION}}"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
