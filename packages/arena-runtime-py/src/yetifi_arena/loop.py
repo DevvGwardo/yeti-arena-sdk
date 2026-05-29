@@ -23,6 +23,9 @@ def run_live(
     )
     last_submitted = -1
     cycles_done = 0
+    # QUEUE readiness announcements — log once on each transition, not per cycle.
+    announced_queue_waiting = False
+    announced_queue_ready = False
 
     def _sleep(seconds: float) -> bool:
         if stop_event is None:
@@ -42,6 +45,28 @@ def run_live(
                 cfg.base_url, cfg.agent_id, token,
                 include=cfg.include or None,
             )
+            # QUEUE phase: the season is gated until enough agents heartbeat,
+            # and submitting a decision is the heartbeat. The loop already
+            # submits below — surface why "joined" isn't "ready" yet, and
+            # confirm once the heartbeat registers.
+            readiness = snap.get("readiness") or {}
+            if readiness.get("phase") == "QUEUE":
+                if readiness.get("agentReady"):
+                    if not announced_queue_ready:
+                        print(
+                            f"[queue] Readiness heartbeat registered — "
+                            f"{readiness.get('readyCount')}/{readiness.get('minAgents')} agents ready. "
+                            f"Season launches automatically at quorum."
+                        )
+                        announced_queue_ready = True
+                elif not announced_queue_waiting:
+                    print(
+                        f"[queue] Season gated — submitting a decision to register your "
+                        f"readiness heartbeat ({readiness.get('readyCount')}/{readiness.get('minAgents')} ready). "
+                        f"QUEUE submissions are accepted but not executed until LIVE."
+                    )
+                    announced_queue_waiting = True
+
             next_cycle = int(snap["server"]["acceptingDecisionsForCycle"])
             if next_cycle > last_submitted:
                 decisions: Sequence[Decision] = decide(snap) or []

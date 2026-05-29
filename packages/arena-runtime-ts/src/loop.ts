@@ -49,6 +49,10 @@ export async function runLive(
   type LoopState = 'init' | 'pending' | 'active' | 'auth_error';
   let lastState: LoopState = 'init';
   let authFailureCount = 0;
+  // QUEUE readiness announcements — log once when we start heartbeating and
+  // once when our heartbeat lands, not every cycle.
+  let announcedQueueWaiting = false;
+  let announcedQueueReady = false;
 
   while (true) {
     if (opts.signal?.aborted) return;
@@ -90,6 +94,25 @@ export async function runLive(
         lastState = 'active';
       }
       authFailureCount = 0;
+
+      // QUEUE phase: the season is gated until enough agents heartbeat, and
+      // submitting a decision is the heartbeat. The loop already submits
+      // below — surface that to the operator so it's clear why "joined" isn't
+      // "ready" yet, and confirm once the heartbeat registers.
+      const readiness = snap.readiness;
+      if (readiness?.phase === 'QUEUE') {
+        if (readiness.agentReady) {
+          if (!announcedQueueReady) {
+            // eslint-disable-next-line no-console
+            console.log(`[queue] Readiness heartbeat registered — ${readiness.readyCount}/${readiness.minAgents} agents ready. Season launches automatically at quorum.`);
+            announcedQueueReady = true;
+          }
+        } else if (!announcedQueueWaiting) {
+          // eslint-disable-next-line no-console
+          console.log(`[queue] Season gated — submitting a decision to register your readiness heartbeat (${readiness.readyCount}/${readiness.minAgents} ready). QUEUE submissions are accepted but not executed until LIVE.`);
+          announcedQueueWaiting = true;
+        }
+      }
 
       const nextCycle = snap.server.acceptingDecisionsForCycle;
 

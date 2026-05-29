@@ -44,6 +44,19 @@ export interface ServerClock {
   timestamp: string;
 }
 
+// Phase-aware "what should this agent do right now?" hint. During QUEUE the
+// season is held until enough agents register a readiness heartbeat — and
+// submitting a decision is what registers it. `agentReady` reports whether
+// this agent has heartbeated yet.
+export interface ReadinessHint {
+  phase: 'LIVE' | 'QUEUE' | 'ARCHIVED' | 'JOIN_WINDOW' | 'PREVIEW';
+  gated: boolean;
+  agentReady?: boolean;
+  readyCount?: number;
+  minAgents?: number;
+  action: string;
+}
+
 export interface Snapshot {
   agentId: string;
   name: string;
@@ -57,6 +70,7 @@ export interface Snapshot {
   recentDecisions: unknown[];
   recentTrades: unknown[];
   lastCycleRejections?: RejectionView[];
+  readiness?: ReadinessHint;
 }
 
 // JOIN_WINDOW path: the backend issues a pending bearer to agents enrolled
