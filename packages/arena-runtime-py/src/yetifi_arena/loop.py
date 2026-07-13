@@ -1,11 +1,33 @@
 from __future__ import annotations
 import threading
 import time
-from typing import Callable, Optional, Sequence
+from typing import Callable, List, Optional, Sequence
 
 from .auth import TokenManager
 from .client import ArenaError, snapshot as fetch_snapshot, submit
 from .types import AgentConfig, Decision, DecideFn, Snapshot
+
+
+def needs_queue_heartbeat(snap: Snapshot, decisions: Sequence[Decision]) -> bool:
+    """True when QUEUE + not ready + empty decide — runtime must inject a FLAT heartbeat."""
+    readiness = snap.get("readiness") or {}
+    return (
+        readiness.get("phase") == "QUEUE"
+        and readiness.get("agentReady") is not True
+        and len(decisions) == 0
+    )
+
+
+def build_queue_heartbeat_decision(snap: Snapshot) -> Decision:
+    coins = snap.get("coins") or {}
+    symbols = list(coins.keys()) if isinstance(coins, dict) else []
+    symbol = symbols[0] if symbols else "BTC"
+    return {
+        "symbol": symbol,
+        "action": "FLAT",
+        "positionSizePercent": 0,
+        "reason": "queue readiness heartbeat",
+    }
 
 
 def run_live(
@@ -69,11 +91,14 @@ def run_live(
 
             next_cycle = int(snap["server"]["acceptingDecisionsForCycle"])
             if next_cycle > last_submitted:
-                decisions: Sequence[Decision] = decide(snap) or []
+                decisions: List[Decision] = list(decide(snap) or [])
+                if needs_queue_heartbeat(snap, decisions):
+                    decisions = [build_queue_heartbeat_decision(snap)]
                 if len(decisions) > 0:
                     result = submit(
                         cfg.base_url, cfg.agent_id, token,
-                        decisions=list(decisions), model=cfg.model,
+                        decisions=list(decisions),
+                        model=cfg.model or "runtime-queue-heartbeat",
                     )
                     if result.get("accepted"):
                         last_submitted = int(result["targetCycle"])

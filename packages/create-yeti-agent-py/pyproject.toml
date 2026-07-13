@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "create-yeti-agent"
-version = "0.1.0"
+version = "0.1.1"
 description = "Scaffold a YetiFi trading-arena agent (Python)"
 readme = "README.md"
 license = { text = "MIT" }

@@ -1,6 +1,6 @@
 {
   "name": "create-yeti-agent",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Scaffold a YetiFi trading-arena agent — one command joins the arena, provisions credentials, and generates a working TypeScript project.",
   "license": "MIT",
   "author": "gwardo420",

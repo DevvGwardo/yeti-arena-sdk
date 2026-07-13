@@ -4,10 +4,10 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import urllib.error
 import urllib.request
-from importlib.resources import files
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -18,7 +18,7 @@ SDK_HEADER = "x-yeti-sdk"
 SDK_HEADER_VALUE = f"{PKG_NAME}@{__version__}"
 DEFAULT_BASE_URL = os.environ.get("YETI_ARENA_URL", "https://api.hermesarena.live")
 RUNTIME_PKG = "yetifi-arena"
-RUNTIME_VERSION = ">=0.1.0,<0.2.0"
+RUNTIME_VERSION = ">=0.1.2,<0.2.0"
 
 
 def _post_json(url: str, body: Dict[str, Any]) -> Dict[str, Any]:
@@ -106,6 +106,17 @@ def _templates_root() -> Path:
     raise RuntimeError(f"Templates not found near {pkg_root}")
 
 
+def _start_agent(dest: Path) -> None:
+    print(f"\n→ --start: installing and launching the loop in {dest}")
+    # Prefer uv when available; fall back to pip + python.
+    if shutil.which("uv"):
+        subprocess.check_call(["uv", "sync"], cwd=dest)
+        subprocess.check_call(["uv", "run", "python", "scripts/run.py"], cwd=dest)
+    else:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-e", "."], cwd=dest)
+        subprocess.check_call([sys.executable, "scripts/run.py"], cwd=dest)
+
+
 def main(argv: Optional[list] = None) -> int:
     parser = argparse.ArgumentParser(prog=PKG_NAME, description="Scaffold a YetiFi arena agent (Python).")
     parser.add_argument("name", nargs="?", help="Agent name (lowercase, 2-39 chars)")
@@ -113,6 +124,8 @@ def main(argv: Optional[list] = None) -> int:
                         help=f"Arena base URL (default: {DEFAULT_BASE_URL})")
     parser.add_argument("--persona", help="One-line strategy persona")
     parser.add_argument("--yes", "-y", action="store_true", help="Skip prompts; require all args")
+    parser.add_argument("--start", action="store_true",
+                        help="After scaffold, install deps and start the agent loop")
     args = parser.parse_args(argv)
 
     name = args.name
@@ -137,11 +150,20 @@ def main(argv: Optional[list] = None) -> int:
         persona = ans or None
 
     print(f'\n→ Joining arena at {args.base_url} as "{name}"')
-    joined = _join_arena(args.base_url, name=name, preferred_interval_sec=60, system_prompt=persona)
+    try:
+        joined = _join_arena(args.base_url, name=name, preferred_interval_sec=60, system_prompt=persona)
+    except RuntimeError as e:
+        print(f"✗ Join failed: {e}", file=sys.stderr)
+        return 1
     agent_id = joined["agentId"]
     api_key = joined["apiKey"]
     tier = joined.get("tier", "free")
     print(f"  agentId: {agent_id} (tier={tier})")
+    readiness = joined.get("readiness") or {}
+    if readiness.get("action"):
+        print(f"  readiness: {readiness['action']}")
+    else:
+        print("  readiness: enrolled — run the agent loop to register ready (join alone is not enough).")
 
     bearer_token = ""
     bearer_expires_at = ""
@@ -179,10 +201,20 @@ def main(argv: Optional[list] = None) -> int:
     (dest / ".env.local").write_text("\n".join(env_lines))
 
     print(
-        f"\n✓ Done.\n\nNext:\n  cd {name}\n  uv sync   # or: pip install -e .\n  python scripts/run.py\n\n"
-        "The only files you should edit are agent/decide.py and agent/persona.md.\n"
+        f"\n✓ Done. You are enrolled, not yet ready.\n"
+        f"  Run the loop so the runtime can submit a QUEUE readiness heartbeat,\n"
+        f"  then edit agent/decide.py / agent/persona.md for strategy.\n\n"
+        f"Next:\n  cd {name}\n  uv sync   # or: pip install -e .\n  python scripts/run.py\n\n"
+        f"Or next time: uvx create-yeti-agent <name> --start\n\n"
         "See AGENT.md in the project root for the contract."
     )
+
+    if args.start:
+        try:
+            _start_agent(dest)
+        except (OSError, subprocess.CalledProcessError) as e:
+            print(f"✗ --start failed: {e}", file=sys.stderr)
+            return 1
     return 0
 
 

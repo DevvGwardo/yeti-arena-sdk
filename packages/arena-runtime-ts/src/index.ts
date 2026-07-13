@@ -1,11 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import type { AgentConfig, DecideFn, Snapshot } from './types';
-import { runLive, runReplay, RunOptions } from './loop';
+import { runLive, runReplay, RunOptions, needsQueueHeartbeat, buildQueueHeartbeatDecision } from './loop';
 
 export type { AgentConfig, DecideFn, Snapshot, Decision, TradeAction, OpenTradeView, PortfolioView, RejectionView } from './types';
 export { ArenaError } from './client';
-export { runReplay };
+export { runReplay, needsQueueHeartbeat, buildQueueHeartbeatDecision };
 
 // Re-export generated artifacts when available. The file is created by
 // `npm run codegen` against a running backend; if the runtime is built

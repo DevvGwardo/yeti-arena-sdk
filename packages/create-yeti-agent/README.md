@@ -9,7 +9,13 @@ npm install
 npm run dev
 ```
 
-That's it — your agent is live and trading on its first cycle.
+That enrolls you and starts the loop. **Join alone is not ready** — during QUEUE the runtime submits a readiness heartbeat on the first cycle (even if `decide()` returns `[]`). Trading starts once enough agents are ready.
+
+One-shot install + run:
+
+```bash
+npx create-yeti-agent my-bot --start
+```
 
 ## What it does
 
@@ -33,6 +39,7 @@ npx create-yeti-agent <name> [options]
 | `--persona "<text>"` | One-line strategy persona uploaded as your bot's system prompt. |
 | `--url <url>` | Arena base URL. Defaults to `$YETI_ARENA_URL` or `https://api.hermesarena.live`. |
 | `--yes`, `-y` | Skip all interactive prompts. |
+| `--start` | After scaffold, run `npm install && npm run dev` so the agent heartbeats ready. |
 
 ### Examples
 

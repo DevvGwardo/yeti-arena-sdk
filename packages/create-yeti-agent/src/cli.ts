@@ -2,16 +2,17 @@
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
+import { spawn } from 'child_process';
 import fetch from 'node-fetch';
 import { detectProvider, overrideProvider, Detection, Provider } from './detect';
 
 const PKG_NAME = 'create-yeti-agent';
-const PKG_VERSION = '0.3.0';
+const PKG_VERSION = '0.3.1';
 const SDK_HEADER = 'x-yeti-sdk';
 const SDK_HEADER_VALUE = `${PKG_NAME}@${PKG_VERSION}`;
 const DEFAULT_BASE_URL = process.env.YETI_ARENA_URL || 'https://api.hermesarena.live';
 const RUNTIME_PKG = 'yetifi-arena-runtime';
-const RUNTIME_VERSION = '^0.1.3';
+const RUNTIME_VERSION = '^0.1.4';
 
 interface ParsedArgs {
   projectName?: string;
@@ -19,10 +20,11 @@ interface ParsedArgs {
   persona?: string;
   yes: boolean;
   llm?: string;
+  start: boolean;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
-  const out: ParsedArgs = { baseUrl: DEFAULT_BASE_URL, yes: false };
+  const out: ParsedArgs = { baseUrl: DEFAULT_BASE_URL, yes: false, start: false };
   const args = argv.slice(2);
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -30,6 +32,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     else if (a === '--persona') out.persona = args[++i];
     else if (a === '--llm') out.llm = args[++i];
     else if (a === '--yes' || a === '-y') out.yes = true;
+    else if (a === '--start') out.start = true;
     else if (!a.startsWith('-') && !out.projectName) out.projectName = a;
   }
   return out;
@@ -106,10 +109,17 @@ function nextStepsLine(d: Detection, name: string): string {
   return `cd ${name}\n  ${setup}npm install\n  npm run dev`;
 }
 
+interface JoinResult {
+  agentId: string;
+  apiKey: string;
+  tier: string;
+  readiness?: { action?: string; phase?: string; readyCount?: number; minAgents?: number };
+}
+
 async function joinArena(
   baseUrl: string,
   body: { name: string; preferredIntervalSec: number; systemPrompt?: string },
-): Promise<{ agentId: string; apiKey: string; tier: string }> {
+): Promise<JoinResult> {
   const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/arena/join`, {
     method: 'POST',
     headers: {
@@ -130,7 +140,7 @@ async function joinArena(
     }
     throw new Error(`/api/arena/join failed (${res.status}): ${msg}`);
   }
-  return payload as { agentId: string; apiKey: string; tier: string };
+  return payload as JoinResult;
 }
 
 async function authenticate(
@@ -199,6 +209,11 @@ async function main(): Promise<void> {
       systemPrompt: persona,
     });
     console.log(`  agentId: ${joined.agentId} (tier=${joined.tier})`);
+    if (joined.readiness?.action) {
+      console.log(`  readiness: ${joined.readiness.action}`);
+    } else {
+      console.log('  readiness: enrolled — run the agent loop to register ready (join alone is not enough).');
+    }
 
     let bearerToken = '';
     let bearerExpiresAt = '';
@@ -258,7 +273,33 @@ async function main(): Promise<void> {
     envLines.push('');
     fs.writeFileSync(path.join(dest, '.env.local'), envLines.join('\n'));
 
-    console.log(`\n✓ Done.\n\nNext:\n  ${nextStepsLine(detection, name)}\n\nWired: ${describeProvider(detection)}.\nEdit agent/decide.ts to tune strategy or agent/llm.ts to swap providers.\nSee AGENTS.md in the project root for the contract.`);
+    console.log(
+      `\n✓ Done. You are enrolled, not yet ready.\n` +
+      `  Run the loop so the runtime can submit a QUEUE readiness heartbeat,\n` +
+      `  then edit agent/decide.ts / agent/persona.md for strategy.\n\n` +
+      `Next:\n  ${nextStepsLine(detection, name)}\n\n` +
+      `Or next time: npx create-yeti-agent <name> --start\n\n` +
+      `Wired: ${describeProvider(detection)}.\nSee AGENTS.md in the project root for the contract.`,
+    );
+
+    if (args.start) {
+      console.log(`\n→ --start: installing and launching the loop in ${dest}`);
+      await new Promise<void>((resolve, reject) => {
+        const install = spawn('npm', ['install'], { cwd: dest, stdio: 'inherit', shell: true });
+        install.on('error', reject);
+        install.on('exit', (code) => {
+          if (code !== 0) return reject(new Error(`npm install exited ${code}`));
+          const run = spawn('npm', ['run', 'dev'], { cwd: dest, stdio: 'inherit', shell: true });
+          run.on('error', reject);
+          run.on('exit', (runCode) => {
+            if (runCode !== 0 && runCode !== null) {
+              return reject(new Error(`npm run dev exited ${runCode}`));
+            }
+            resolve();
+          });
+        });
+      });
+    }
   } finally {
     rl.close();
   }

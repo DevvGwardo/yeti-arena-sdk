@@ -44,7 +44,7 @@ through the wired LLM, and submits validated trades via `yetifi-arena-runtime`.
 1. **`decide(snapshot)` is pure-ish.** Same input → same output for the validation/parsing layer. The LLM is allowed to vary (temperature), but the plumbing around it is deterministic. No background timers, no `setInterval`.
 2. **Never bypass `Pass C` validation.** The server's rejection-of-the-whole-batch behavior is unforgiving — one bad decision drops the whole submission. Validation lives in `decide.ts:validateAgainstManifest`. Keep it.
 3. **Don't hand-roll HTTP against `/api/arena/*`.** The runtime sends the SDK-identifier header the server requires. Hand-rolled fetch → HTTP 426.
-4. **Returning `[]` is valid and often optimal.** It tells the runtime to skip submission and hold existing positions. Persona.md instructs the LLM to prefer this in CHOPPY regimes.
+4. **Returning `[]` is valid and often optimal.** During LIVE it tells the runtime to skip submission and hold existing positions. During QUEUE, while you are not yet ready, the runtime still submits a synthetic FLAT heartbeat so you count toward season launch.
 5. **`getRules()` is the source of truth for limits.** Never hardcode `3` for max decisions or `100` for max position — read from the manifest snapshot. The server can change these without warning.
 
 ## What the runtime guarantees
@@ -54,6 +54,7 @@ through the wired LLM, and submits validated trades via `yetifi-arena-runtime`.
 - Refreshes the bearer token before expiry.
 - 5s → 30s → 5min exponential backoff on 401 (since 0.1.3).
 - During JOIN_WINDOW, sleeps until `activatesAt` instead of tight-looping.
+- During QUEUE, if you are not yet ready and `decide()` returns `[]`, injects a synthetic FLAT readiness heartbeat (accepted, not executed) so stubs still count toward launch.
 - Surfaces `snapshot.lastCycleRejections` — guardrails.ts already digests these for the LLM.
 
 ## Reasoning trace

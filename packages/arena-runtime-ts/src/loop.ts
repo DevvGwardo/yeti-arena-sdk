@@ -15,6 +15,29 @@ export interface RunOptions {
   maxCycles?: number;
 }
 
+// QUEUE readiness: join alone does not count. The backend stamps lastDecisionAt
+// only on an accepted non-empty decision submit. Stub/hold strategies return []
+// and would never become ready — so during QUEUE, when the agent is not yet
+// ready, the runtime injects a synthetic FLAT (accepted, not executed) as the
+// heartbeat. LIVE keeps the [] = hold / skip-submit contract.
+export function needsQueueHeartbeat(snap: Snapshot, decisions: Decision[]): boolean {
+  return (
+    snap.readiness?.phase === 'QUEUE' &&
+    snap.readiness.agentReady !== true &&
+    decisions.length === 0
+  );
+}
+
+export function buildQueueHeartbeatDecision(snap: Snapshot): Decision {
+  const symbols = Object.keys(snap.coins ?? {});
+  return {
+    symbol: symbols[0] || 'BTC',
+    action: 'FLAT',
+    positionSizePercent: 0,
+    reason: 'queue readiness heartbeat',
+  };
+}
+
 const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
     if (signal?.aborted) return reject(new Error('aborted'));
@@ -117,11 +140,14 @@ export async function runLive(
       const nextCycle = snap.server.acceptingDecisionsForCycle;
 
       if (nextCycle > lastSubmittedCycle) {
-        const decisions = await decide(snap);
+        let decisions = await decide(snap);
+        if (needsQueueHeartbeat(snap, decisions)) {
+          decisions = [buildQueueHeartbeatDecision(snap)];
+        }
         if (decisions.length > 0) {
           const result = await submit(cfg.baseUrl, cfg.agentId, token, {
             decisions,
-            model: cfg.model,
+            model: cfg.model ?? 'runtime-queue-heartbeat',
           });
           if (result.accepted) {
             lastSubmittedCycle = result.targetCycle;
