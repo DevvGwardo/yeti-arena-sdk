@@ -22,3 +22,4 @@ packages = ["src/create_yeti_agent_py"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "templates" = "create_yeti_agent_py/templates"
+"styles" = "create_yeti_agent_py/styles"
