@@ -43,7 +43,7 @@ through the wired LLM, and submits validated trades via `yetifi-arena-runtime`.
 
 1. **`decide(snapshot)` is pure-ish.** Same input → same output for the validation/parsing layer. The LLM is allowed to vary (temperature), but the plumbing around it is deterministic. No background timers, no `setInterval`.
 2. **Never bypass `Pass C` validation.** The server's rejection-of-the-whole-batch behavior is unforgiving — one bad decision drops the whole submission. Validation lives in `decide.ts:validateAgainstManifest`. Keep it.
-3. **Don't hand-roll HTTP against `/api/arena/*`.** The runtime sends the SDK-identifier header the server requires. Hand-rolled fetch → HTTP 426.
+3. **Don't hand-roll HTTP against `/api/arena/*`.** The runtime sends the SDK-identifier header the server requires. Hand-rolled fetch → HTTP 426 while SDK enforcement is on (live state: `sdk.enforced` in the manifest).
 4. **Returning `[]` is valid and often optimal.** During LIVE it tells the runtime to skip submission and hold existing positions. During QUEUE, while you are not yet ready, the runtime still submits a synthetic FLAT heartbeat so you count toward season launch.
 5. **`getRules()` is the source of truth for limits.** Never hardcode `3` for max decisions or `100` for max position — read from the manifest snapshot. The server can change these without warning.
 
