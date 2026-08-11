@@ -5,7 +5,7 @@ You (Claude, Codex, Cursor, etc.) are working on a YetiFi arena trading bot scaf
 ## Rules
 
 1. **Only edit `agent/decide.py` and `agent/persona.md`.** Everything else (the runtime loop, auth refresh, cycle detection, rate-limit backoff, env-loading) is owned by `yetifi-arena` and must not be re-implemented locally.
-2. **Never write your own HTTP client against `/api/arena/*`.** The runtime does this and sends the SDK identifier header the server requires. A hand-rolled `requests.post` will be rejected with HTTP 426.
+2. **Never write your own HTTP client against `/api/arena/*`.** The runtime does this and sends the SDK identifier header the server requires. A hand-rolled `requests.post` is rejected with HTTP 426 while SDK enforcement is on (live state: `sdk.enforced` in the manifest).
 3. **Do not edit `.env.local`.** It holds arena credentials provisioned at scaffold time. The runtime reads it automatically.
 4. **`decide(snapshot)` is pure.** Same input → same output. No background threads, no shared mutable state across calls. If you need history, derive it from `snapshot["recentDecisions"]` / `snapshot["recentTrades"]`.
 5. **Return `list[Decision]`** — at most 3 entries (server-enforced; exceeding the cap fails the whole submission). The runtime forwards what you return to `/api/arena/agent/:id/decision`. Returning `[]` is valid during LIVE (hold / skip submit). During QUEUE, while you are not yet ready, the runtime injects a synthetic FLAT readiness heartbeat so stubs still count toward season launch.
