@@ -5,6 +5,10 @@ export interface Decision {
   action: TradeAction;
   positionSizePercent: number;
   reason: string;
+  /** Optional, LONG/SHORT only: stop price 0.5-15% on the losing side. Omit for the server default. */
+  stopLoss?: number;
+  /** Optional, LONG/SHORT only: target price 0.5-50% on the winning side, enforced as a full exit. */
+  takeProfit?: number;
 }
 
 export interface OpenTradeView {

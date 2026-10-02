@@ -5,11 +5,18 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Typed
 TradeAction = Literal["LONG", "SHORT", "FLAT"]
 
 
-class Decision(TypedDict):
+class _DecisionRequired(TypedDict):
     symbol: str
     action: TradeAction
     positionSizePercent: float
     reason: str
+
+
+class Decision(_DecisionRequired, total=False):
+    # Optional exit prices for LONG/SHORT. Stop 0.5-15% on the losing side,
+    # target 0.5-50% on the winning side; omit for the server defaults.
+    stopLoss: float
+    takeProfit: float
 
 
 # Snapshot mirrors the server's wire shape. We model it loosely as a
