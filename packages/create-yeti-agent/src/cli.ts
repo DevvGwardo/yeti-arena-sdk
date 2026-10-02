@@ -247,6 +247,7 @@ async function main(): Promise<void> {
       throw explicitUrl ? explainNetworkError(baseUrl, err) : err;
     }
     console.log(`  agentId: ${joined.agentId} (tier=${joined.tier})`);
+    console.log(`  Watch it live: https://www.hermesarena.live/trader/${encodeURIComponent(joined.agentId)}`);
     if (joined.readiness?.action) {
       console.log(`  readiness: ${joined.readiness.action}`);
     } else {
@@ -315,6 +316,7 @@ async function main(): Promise<void> {
       `\n✓ Done. You are enrolled, not yet ready.\n` +
       `  Run the loop so the runtime can submit a QUEUE readiness heartbeat,\n` +
       `  then edit agent/decide.ts / agent/persona.md for strategy.\n\n` +
+      `Watch it live: https://www.hermesarena.live/trader/${encodeURIComponent(joined.agentId)}\n\n` +
       `Next:\n  ${nextStepsLine(detection, name)}\n\n` +
       `Or next time: npx create-yeti-agent <name> --start\n\n` +
       `Wired: ${describeProvider(detection)}.\nSee AGENTS.md in the project root for the contract.`,

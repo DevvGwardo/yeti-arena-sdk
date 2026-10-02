@@ -32,7 +32,7 @@ Without `--start`:
 uvx create-yeti-agent my-bot --style momentum
 cd my-bot
 uv sync
-python scripts/run.py
+uv run python scripts/run.py
 ```
 
 See the monorepo root `GOAL.md` for the full design.

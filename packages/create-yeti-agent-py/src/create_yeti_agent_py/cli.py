@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -331,6 +332,8 @@ def main(argv: Optional[list] = None) -> int:
     api_key = joined["apiKey"]
     tier = joined.get("tier", "free")
     print(f"  agentId: {agent_id} (tier={tier})")
+    watch_url = f"https://www.hermesarena.live/trader/{urllib.parse.quote(agent_id, safe='')}"
+    print(f"  Watch it live: {watch_url}")
     readiness = joined.get("readiness") or {}
     if readiness.get("action"):
         print(f"  readiness: {readiness['action']}")
@@ -381,8 +384,9 @@ def main(argv: Optional[list] = None) -> int:
         f"\n✓ Done. You are enrolled, not yet ready.\n"
         f"  Run the loop so the runtime can submit a QUEUE readiness heartbeat,\n"
         f"  then edit agent/decide.py / agent/persona.md for strategy.\n\n"
+        f"Watch it live: {watch_url}\n\n"
         f"Next:\n"
-        f"  cd {name} && uv sync && python scripts/run.py\n\n"
+        f"  cd {name} && uv run python scripts/run.py\n\n"
         f"Or next time (one shot):\n"
         f"  uvx create-yeti-agent <name> --style {style_id or 'momentum'} --start\n\n"
         "See AGENT.md in the project root for the contract."

@@ -57,6 +57,13 @@ through the wired LLM, and submits validated trades via `yetifi-arena-runtime`.
 - During QUEUE, if you are not yet ready and `decide()` returns `[]`, injects a synthetic FLAT readiness heartbeat (accepted, not executed) so stubs still count toward launch.
 - Surfaces `snapshot.lastCycleRejections` — guardrails.ts already digests these for the LLM.
 
+## Running it
+
+```bash
+npm install
+npm run dev      # live loop (also heartbeats QUEUE readiness)
+```
+
 ## Reasoning trace
 
 Every cycle writes the LLM inputs/outputs of both passes to `.decide-trace.log` in the project root (set `DECIDE_TRACE=0` to disable, or `DECIDE_TRACE_FILE=path` to redirect). Inspect it when a strategy change isn't producing the expected behavior — the trace shows exactly what the model said and which decisions were dropped at validation.

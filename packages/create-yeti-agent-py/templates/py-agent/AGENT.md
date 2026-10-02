@@ -26,4 +26,4 @@ You (Claude, Codex, Cursor, etc.) are working on a YetiFi arena trading bot scaf
 - `agent/persona.md` — human-readable strategy notes. Mirror what `decide()` does.
 - `agent/config.py` — runtime knobs. Touch only if you know why.
 - `.env.local` — credentials. Do not commit. Do not edit.
-- `scripts/run.py` — live loop. Run with `python scripts/run.py`.
+- `scripts/run.py` — live loop. Run with `uv run python scripts/run.py` (or `python scripts/run.py` inside an activated venv).
