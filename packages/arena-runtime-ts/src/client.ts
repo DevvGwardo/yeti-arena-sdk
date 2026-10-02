@@ -2,7 +2,7 @@ import fetch from 'node-fetch';
 import type { Decision, SnapshotResponse } from './types';
 
 const PKG_NAME = 'yetifi-arena-runtime';
-const PKG_VERSION = '0.1.3';
+const PKG_VERSION = '0.1.5';
 export const SDK_HEADER = 'x-yeti-sdk';
 export const SDK_HEADER_VALUE = `${PKG_NAME}@${PKG_VERSION}`;
 
@@ -43,15 +43,35 @@ const sdkHeaders = (extra: Record<string, string> = {}): Record<string, string> 
   ...extra,
 });
 
-async function jsonOrThrow<T>(res: Awaited<ReturnType<typeof fetch>>): Promise<T> {
+const AGENT_HINT =
+  'hint: this agent may have been removed (a new season started or it was deleted); if so, re-scaffold with a new name.';
+
+/** `HTTP 404 GET /path: server message` plus a hint for agent-endpoint 401/404. */
+export function formatHttpError(status: number, method: string, path: string, body: unknown): string {
+  let msg: string | undefined;
+  if (body && typeof body === 'object') {
+    const b = body as { message?: unknown; error?: unknown };
+    for (const v of [b.message, b.error]) {
+      if (typeof v === 'string' && v.trim()) { msg = v.trim().slice(0, 200); break; }
+    }
+  }
+  let out = `HTTP ${status} ${method} ${path}`;
+  if (msg) out += `: ${msg}`;
+  if ((status === 401 || status === 404) && path.startsWith('/api/arena/agent/')) out += ` (${AGENT_HINT})`;
+  return out;
+}
+
+async function jsonOrThrow<T>(
+  res: Awaited<ReturnType<typeof fetch>>,
+  method: string,
+): Promise<T> {
   const text = await res.text();
   let body: unknown = text;
   try { body = text ? JSON.parse(text) : null; } catch { /* leave as text */ }
   if (!res.ok) {
-    const msg = (body as { message?: string; error?: string } | null)?.message
-      || (body as { error?: string } | null)?.error
-      || `HTTP ${res.status}`;
-    throw new ArenaError(res.status, body, msg);
+    let path = '?';
+    try { path = new URL(res.url).pathname; } catch { /* keep ? */ }
+    throw new ArenaError(res.status, body, formatHttpError(res.status, method, path, body));
   }
   return body as T;
 }
@@ -65,7 +85,7 @@ export async function join(
     headers: sdkHeaders(),
     body: JSON.stringify(body),
   });
-  return jsonOrThrow<JoinResponse>(res);
+  return jsonOrThrow<JoinResponse>(res, 'POST');
 }
 
 export async function auth(
@@ -77,7 +97,7 @@ export async function auth(
     headers: sdkHeaders(),
     body: JSON.stringify(body),
   });
-  return jsonOrThrow<AuthResponse>(res);
+  return jsonOrThrow<AuthResponse>(res, 'POST');
 }
 
 export async function refresh(baseUrl: string, bearer: string): Promise<AuthResponse> {
@@ -85,7 +105,7 @@ export async function refresh(baseUrl: string, bearer: string): Promise<AuthResp
     method: 'POST',
     headers: sdkHeaders({ authorization: `Bearer ${bearer}` }),
   });
-  return jsonOrThrow<AuthResponse>(res);
+  return jsonOrThrow<AuthResponse>(res, 'POST');
 }
 
 export async function snapshot(
@@ -99,7 +119,7 @@ export async function snapshot(
   const res = await fetch(url.toString(), {
     headers: sdkHeaders({ authorization: `Bearer ${bearer}` }),
   });
-  return jsonOrThrow<SnapshotResponse>(res);
+  return jsonOrThrow<SnapshotResponse>(res, 'GET');
 }
 
 export async function submit(
@@ -113,12 +133,12 @@ export async function submit(
     headers: sdkHeaders({ authorization: `Bearer ${bearer}` }),
     body: JSON.stringify(body),
   });
-  return jsonOrThrow<SubmitResponse>(res);
+  return jsonOrThrow<SubmitResponse>(res, 'POST');
 }
 
 export async function manifest(baseUrl: string): Promise<unknown> {
   const res = await fetch(`${stripSlash(baseUrl)}/api/arena/manifest`, {
     headers: sdkHeaders(),
   });
-  return jsonOrThrow<unknown>(res);
+  return jsonOrThrow<unknown>(res, 'GET');
 }

@@ -60,4 +60,6 @@ A forked template drifts. The runtime is a real dependency you bump like any oth
 
 The backend rejects hand-rolled `/api/arena/join` calls with HTTP 426 Upgrade Required while SDK enforcement is on (live state: `sdk.enforced` in `GET /api/arena/manifest`). Both scaffolders publish a `x-yeti-sdk: <pkg>@<version>` identifier header so the backend can distinguish a real SDK caller from a hand-rolled `fetch`/`requests`. Hand-rolled joins are not the supported path either way — the scaffolder stays in sync with protocol changes.
 
+**Publishing order:** runtimes first (`arena-runtime-py` -> PyPI, `arena-runtime-ts` -> npm), then scaffolders (`create-yeti-agent`, `create-yeti-agent-py`). The scaffolders pin the runtime version (`RUNTIME_VERSION`), so a scaffolder published before its runtime generates projects that cannot install.
+
 See [`GOAL.md`](GOAL.md) for the full design and launch checklist.

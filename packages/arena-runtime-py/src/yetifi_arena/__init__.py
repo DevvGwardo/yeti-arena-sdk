@@ -18,4 +18,4 @@ __all__ = [
     "run_from_cwd",
     "DefinedAgent",
 ]
-__version__ = "0.1.2"
+__version__ = "0.1.3"

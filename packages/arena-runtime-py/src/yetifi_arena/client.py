@@ -1,9 +1,10 @@
 from __future__ import annotations
 from typing import Any, Dict, Iterable, List, Optional, Sequence
+from urllib.parse import urlsplit
 import requests
 
 PKG_NAME = "yetifi-arena"
-PKG_VERSION = "0.1.1"
+PKG_VERSION = "0.1.3"
 SDK_HEADER = "x-yeti-sdk"
 SDK_HEADER_VALUE = f"{PKG_NAME}@{PKG_VERSION}"
 
@@ -38,11 +39,33 @@ def _decode(resp: requests.Response) -> Any:
         except ValueError:
             body = text
     if not resp.ok:
-        msg = None
-        if isinstance(body, dict):
-            msg = body.get("message") or body.get("error")
-        raise ArenaError(resp.status_code, body, msg or f"HTTP {resp.status_code}")
+        method = getattr(resp.request, "method", None) or "?"
+        path = urlsplit(getattr(resp.request, "url", None) or "").path or "?"
+        raise ArenaError(resp.status_code, body, format_http_error(resp.status_code, method, path, body))
     return body
+
+
+_AGENT_HINT = (
+    "hint: this agent may have been removed (a new season started or it was deleted); "
+    "if so, re-scaffold with a new name."
+)
+
+
+def format_http_error(status: int, method: str, path: str, body: Any) -> str:
+    """`HTTP 404 GET /path: server message` plus a hint for agent-endpoint 401/404."""
+    msg = None
+    if isinstance(body, dict):
+        for key in ("message", "error"):
+            val = body.get(key)
+            if isinstance(val, str) and val.strip():
+                msg = val.strip()[:200]
+                break
+    out = f"HTTP {status} {method} {path}"
+    if msg:
+        out += f": {msg}"
+    if status in (401, 404) and path.startswith("/api/arena/agent/"):
+        out += f" ({_AGENT_HINT})"
+    return out
 
 
 def join(base_url: str, *, name: str, preferred_interval_sec: int = 60,

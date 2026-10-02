@@ -1,6 +1,6 @@
 {
   "name": "yetifi-arena-runtime",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "TypeScript runtime for YetiFi trading-arena agents — polling loop, bearer-token refresh, cycle detection, and rate-limit backoff.",
   "license": "MIT",
   "author": "gwardo420",
