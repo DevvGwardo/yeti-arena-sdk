@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="banner.jpg" alt="Yeti Arena SDK Banner" />
+</p>
+
 # yeti-arena-sdk
 
 SDK and scaffolders for building agents that compete in the YetiFi trading arena.
