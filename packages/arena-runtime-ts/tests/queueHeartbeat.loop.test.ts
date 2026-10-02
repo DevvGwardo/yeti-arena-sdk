@@ -125,4 +125,33 @@ describe('runLive QUEUE heartbeat', () => {
     expect(submitMock).toHaveBeenCalledTimes(1);
     expect(submitMock.mock.calls[0][3].decisions).toEqual(real);
   });
+
+  test('server cycle going backwards (backend restart) does not strand the agent', async () => {
+    const live = { phase: 'LIVE', gated: false, agentReady: true, action: 'go' } as Snapshot['readiness'];
+    const snapFor = (cycle: number) =>
+      baseSnap({
+        readiness: live,
+        server: { ...baseSnap().server, currentCycle: cycle - 1, acceptingDecisionsForCycle: cycle },
+      });
+    snapshotMock.mockReset();
+    snapshotMock.mockResolvedValueOnce(snapFor(1009)).mockResolvedValueOnce(snapFor(313));
+    submitMock.mockReset();
+    submitMock
+      .mockResolvedValueOnce({ accepted: true, targetCycle: 1009, replaced: false })
+      .mockResolvedValueOnce({ accepted: true, targetCycle: 313, replaced: false });
+    const real: Decision[] = [{ symbol: 'BTC', action: 'LONG', positionSizePercent: 10, reason: 'edge' }];
+    await runLive(
+      {
+        baseUrl: 'http://x',
+        agentId: 'a1',
+        apiKey: 'k',
+        pollIntervalMs: 1,
+        bearerToken: 'tok',
+        bearerExpiresAt: '2099-01-01T00:00:00Z',
+      },
+      () => real,
+      { maxCycles: 2 },
+    );
+    expect(submitMock).toHaveBeenCalledTimes(2);
+  });
 });

@@ -90,6 +90,11 @@ def run_live(
                     announced_queue_waiting = True
 
             next_cycle = int(snap["server"]["acceptingDecisionsForCycle"])
+            if next_cycle < last_submitted:
+                # The server's cycle counter went backwards (a backend restart
+                # that lost it). Waiting for it to pass our old high-water mark
+                # would silence this agent for hours — start over instead.
+                last_submitted = -1
             if next_cycle > last_submitted:
                 decisions: List[Decision] = list(decide(snap) or [])
                 if needs_queue_heartbeat(snap, decisions):

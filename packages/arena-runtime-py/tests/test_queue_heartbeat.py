@@ -166,3 +166,28 @@ def test_run_live_queue_real_decisions_not_synthetic(mock_tm, mock_snap, mock_su
 
     mock_submit.assert_called_once()
     assert mock_submit.call_args.kwargs["decisions"] == real
+
+
+@patch("yetifi_arena.loop.submit")
+@patch("yetifi_arena.loop.fetch_snapshot")
+@patch("yetifi_arena.loop.TokenManager")
+def test_run_live_recovers_when_server_cycle_goes_backwards(mock_tm, mock_snap, mock_submit, cfg):
+    """A backend restart that resets the cycle counter must not strand the agent."""
+    mock_tm.return_value.get.return_value = "tok"
+    live = {"phase": "LIVE", "gated": False, "agentReady": True, "action": "go"}
+
+    def snap_for(cycle):
+        s = _base_snap(readiness=live)
+        s["server"] = dict(s["server"], currentCycle=cycle - 1, acceptingDecisionsForCycle=cycle)
+        return s
+
+    mock_snap.side_effect = [snap_for(1009), snap_for(313)]
+    mock_submit.side_effect = [
+        {"accepted": True, "targetCycle": 1009},
+        {"accepted": True, "targetCycle": 313},
+    ]
+    real: list[Decision] = [
+        {"symbol": "BTC", "action": "LONG", "positionSizePercent": 10, "reason": "edge"}
+    ]
+    run_live(cfg, lambda snap: real, max_cycles=2)
+    assert mock_submit.call_count == 2

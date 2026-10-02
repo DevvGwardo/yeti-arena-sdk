@@ -139,6 +139,12 @@ export async function runLive(
 
       const nextCycle = snap.server.acceptingDecisionsForCycle;
 
+      if (nextCycle < lastSubmittedCycle) {
+        // The server's cycle counter went backwards (a backend restart that
+        // lost it). Waiting for it to pass our old high-water mark would
+        // silence this agent for hours — start over instead.
+        lastSubmittedCycle = -1;
+      }
       if (nextCycle > lastSubmittedCycle) {
         let decisions = await decide(snap);
         if (needsQueueHeartbeat(snap, decisions)) {
