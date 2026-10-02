@@ -6,9 +6,10 @@ import { spawn } from 'child_process';
 import fetch from 'node-fetch';
 import { resolveBaseUrl, explainNetworkError, PRIMARY_BASE_URL, FALLBACK_BASE_URL } from './resolve';
 import { detectProvider, overrideProvider, Detection, Provider } from './detect';
+import { BUNDLED_STYLES, TradingStyle, mergeCatalog, personaMarkdown, styleIds } from './styles';
 
 const PKG_NAME = 'create-yeti-agent';
-const PKG_VERSION = '0.3.2';
+const PKG_VERSION = '0.4.0';
 const SDK_HEADER = 'x-yeti-sdk';
 const SDK_HEADER_VALUE = `${PKG_NAME}@${PKG_VERSION}`;
 const RUNTIME_PKG = 'yetifi-arena-runtime';
@@ -22,6 +23,7 @@ interface ParsedArgs {
   persona?: string;
   yes: boolean;
   llm?: string;
+  style?: string;
   start: boolean;
 }
 
@@ -34,6 +36,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     else if (a === '--url' || a === '--base-url') out.baseUrl = args[++i] || out.baseUrl;
     else if (a === '--persona') out.persona = args[++i];
     else if (a === '--llm') out.llm = args[++i];
+    else if (a === '--style') out.style = args[++i];
     else if (a === '--yes' || a === '-y') out.yes = true;
     else if (a === '--start') out.start = true;
     else if (!a.startsWith('-') && !out.projectName) out.projectName = a;
@@ -51,6 +54,8 @@ Options:
   --url <url>        Arena base URL. Never falls back if you set it.
   --persona "<text>" One-line strategy persona (uploaded as system prompt)
   --llm <provider>   Force LLM provider (hermes|anthropic|openai|gemini|ollama|stub)
+  --style <id>       Rules-based preset, no LLM key needed (${styleIds().join('|')}).
+                     Overwrites agent/decide.ts and agent/persona.md.
   --yes, -y          Skip interactive prompts
   --start            After scaffolding, npm install && npm run dev
   --help, -h         Show this help
@@ -62,6 +67,46 @@ Default host: ${PRIMARY_BASE_URL}. If it is unreachable (network/TLS error or
 non-2xx on /api/arena/manifest), ${FALLBACK_BASE_URL}
 is used instead and written to ARENA_BASE_URL in .env.local.
 `;
+
+async function fetchStyleCatalog(baseUrl: string): Promise<TradingStyle[]> {
+  const url = `${baseUrl.replace(/\/$/, '')}/api/arena/styles`;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const res = await fetch(url, { headers: { accept: 'application/json' }, signal: ctl.signal as any });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload = (await res.json()) as { styles?: unknown };
+    return mergeCatalog(payload.styles);
+  } catch (err) {
+    console.warn(`  warning: could not fetch styles from ${url} (${(err as Error).message}); using bundled styles`);
+    return BUNDLED_STYLES;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function applyStyle(destDir: string, style: TradingStyle, agentName: string): void {
+  const body = style.decideTs.trim();
+  fs.writeFileSync(path.join(destDir, 'agent', 'decide.ts'), body + '\n');
+  fs.writeFileSync(path.join(destDir, 'agent', 'persona.md'), personaMarkdown(agentName, style.persona));
+}
+
+async function pickStyleInteractive(rl: readline.Interface, styles: TradingStyle[]): Promise<TradingStyle | undefined> {
+  console.log('\nNo LLM detected. Pick a rules-based trading style (no LLM key required):');
+  styles.forEach((s, i) => console.log(`  ${i + 1}. ${s.id} - ${s.label}: ${s.blurb}`));
+  console.log('  0. skip (decide.ts will return [] until you wire an LLM)');
+  const ans = (await ask(rl, 'Pick a style number (default 1): ')).toLowerCase();
+  if (ans === '' || ans === '1') return styles[0];
+  if (ans === '0' || ans === 'skip' || ans === 'none') return undefined;
+  if (/^\d+$/.test(ans)) {
+    const idx = Number(ans);
+    if (idx >= 1 && idx <= styles.length) return styles[idx - 1];
+  }
+  const byId = styles.find((s) => s.id === ans);
+  if (byId) return byId;
+  console.log(`  unknown choice ${JSON.stringify(ans)}; skipping style`);
+  return undefined;
+}
 
 function ask(rl: readline.Interface, prompt: string): Promise<string> {
   return new Promise((resolve) => rl.question(prompt, (a) => resolve(a.trim())));
@@ -109,7 +154,8 @@ function wireProvider(destDir: string, detection: Detection): void {
   fs.writeFileSync(path.join(destDir, 'agent', 'llm.ts'), body);
 }
 
-function describeProvider(d: Detection): string {
+function describeProvider(d: Detection, style?: TradingStyle): string {
+  if (style && d.provider === 'stub') return `Rules-based style "${style.id}" (${style.label}) - no LLM needed`;
   switch (d.provider) {
     case 'hermes':    return `Hermes @ ${d.baseUrl} (model ${d.model})`;
     case 'anthropic': return `Anthropic API (model ${d.model}) — needs ANTHROPIC_API_KEY at runtime`;
@@ -120,8 +166,9 @@ function describeProvider(d: Detection): string {
   }
 }
 
-function nextStepsLine(d: Detection, name: string): string {
+function nextStepsLine(d: Detection, name: string, style?: TradingStyle): string {
   const setup = (() => {
+    if (style && d.provider === 'stub') return '';
     switch (d.provider) {
       case 'hermes':    return '';
       case 'anthropic': return 'export ANTHROPIC_API_KEY=...\n  ';
@@ -205,6 +252,11 @@ async function main(): Promise<void> {
       process.exit(2);
     }
 
+    if (args.style !== undefined && !args.style) {
+      console.error(`--style needs an id. Valid: ${styleIds().join(', ')}`);
+      process.exit(2);
+    }
+
     let persona = args.persona;
     if (persona === undefined && !args.yes) {
       const a = await ask(rl, 'One-line strategy persona (optional, press enter to skip): ');
@@ -225,7 +277,11 @@ async function main(): Promise<void> {
       console.log(`  forced via --llm: ${describeProvider(detection)}`);
     } else {
       detection = await detectProvider();
-      console.log(`  ${detection.provider === 'stub' ? '(none found)' : 'found'}: ${describeProvider(detection)}`);
+      if (detection.provider === 'stub' && args.style) {
+        console.log(`  (none found; not needed) using rules-based style "${args.style}"`);
+      } else {
+        console.log(`  ${detection.provider === 'stub' ? '(none found)' : 'found'}: ${describeProvider(detection)}`);
+      }
     }
 
     const resolved = await resolveBaseUrl(args.baseUrl);
@@ -234,6 +290,23 @@ async function main(): Promise<void> {
       console.log(`\n  ${PRIMARY_BASE_URL.replace(/^https?:\/\//, '')} unreachable (${resolved.reason}), using ${baseUrl}`);
     }
     const explicitUrl = !!args.baseUrl;
+
+    // Rules-based style: explicit --style, or offered when no LLM was detected
+    // (never with --yes, which stays non-interactive and keeps the stub).
+    let style: TradingStyle | undefined;
+    if (args.style || (detection.provider === 'stub' && !args.llm && !args.yes)) {
+      const catalog = await fetchStyleCatalog(baseUrl);
+      if (args.style) {
+        style = catalog.find((s) => s.id === args.style);
+        if (!style) {
+          console.error(`Unknown style "${args.style}". Valid: ${styleIds(catalog).join(', ')}`);
+          process.exit(2);
+        }
+      } else {
+        style = await pickStyleInteractive(rl, catalog);
+      }
+      if (style && persona === undefined) persona = style.persona || undefined;
+    }
 
     console.log(`\n→ Joining arena at ${baseUrl} as "${name}"`);
     let joined: JoinResult;
@@ -275,9 +348,13 @@ async function main(): Promise<void> {
       PERSONA: persona || '',
       LLM_PROVIDER: detection.provider,
       LLM_MODEL: detection.model || '',
-      LLM_DESCRIPTION: describeProvider(detection),
+      LLM_DESCRIPTION: describeProvider(detection, style),
     });
     wireProvider(dest, detection);
+    if (style) {
+      applyStyle(dest, style, name);
+      console.log(`  applied style ${style.id} -> agent/decide.ts + agent/persona.md`);
+    }
 
     const envLines = [
       `ARENA_BASE_URL=${baseUrl.replace(/\/$/, '')}`,
@@ -317,9 +394,9 @@ async function main(): Promise<void> {
       `  Run the loop so the runtime can submit a QUEUE readiness heartbeat,\n` +
       `  then edit agent/decide.ts / agent/persona.md for strategy.\n\n` +
       `Watch it live: https://www.hermesarena.live/trader/${encodeURIComponent(joined.agentId)}\n\n` +
-      `Next:\n  ${nextStepsLine(detection, name)}\n\n` +
+      `Next:\n  ${nextStepsLine(detection, name, style)}\n\n` +
       `Or next time: npx create-yeti-agent <name> --start\n\n` +
-      `Wired: ${describeProvider(detection)}.\nSee AGENTS.md in the project root for the contract.`,
+      `Wired: ${describeProvider(detection, style)}.\nSee AGENTS.md in the project root for the contract.`,
     );
 
     if (args.start) {

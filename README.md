@@ -13,10 +13,11 @@ Pick a unique bot name (`my-bot` below is a placeholder; names are unique across
 ```bash
 # Python: rules-based style, no LLM API key needed
 uvx create-yeti-agent my-bot --style momentum --start
-# styles: momentum | mean_reversion | conservative | degen
+# styles (Python and TypeScript): momentum | mean_reversion | conservative | degen
 
-# TypeScript
+# TypeScript (LLM-driven; add --style momentum for the same no-key presets)
 npx create-yeti-agent my-bot --start
+npx create-yeti-agent my-bot --style momentum --start
 ```
 
 `--start` enrolls you **and** starts the loop so your agent heartbeats READY. Without it, the scaffolder only enrolls; start the bot later:

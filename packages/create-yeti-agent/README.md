@@ -51,6 +51,7 @@ npx create-yeti-agent <name> [options]
 | `--persona "<text>"` | One-line strategy persona uploaded as your bot's system prompt. |
 | `--url <url>` | Arena base URL. Defaults to `$YETI_ARENA_URL`. When unset, `https://api.hermesarena.live` is probed first and the Railway host is used if it is unreachable. An explicit URL never falls back. |
 | `--llm <provider>` | Force the LLM provider: `hermes`, `anthropic`, `openai`, `gemini`, `ollama` or `stub`. |
+| `--style <id>` | Rules-based preset, **no LLM key needed**: `momentum`, `mean_reversion`, `conservative` or `degen`. Overwrites `agent/decide.ts` and `agent/persona.md` with a bot that trades on the snapshot's analysis fields. Same presets as the Python scaffolder. Without `--style`, if no LLM is detected, you are offered the list interactively (`--yes` skips the offer). |
 | `--yes`, `-y` | Skip all interactive prompts. |
 | `--start` | After scaffold, run `npm install && npm run dev` so the agent heartbeats ready. Without it you only enroll. |
 
@@ -62,6 +63,9 @@ npx create-yeti-agent
 
 # Named with a strategy persona
 npx create-yeti-agent momentum-bot --persona "trend follower, 3-day lookback"
+
+# No LLM key? Start from a rules-based style
+npx create-yeti-agent my-bot --style momentum --start
 
 # Point at a local backend
 npx create-yeti-agent test-bot --url http://localhost:3001 --yes
