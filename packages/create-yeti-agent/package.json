@@ -1,6 +1,6 @@
 {
   "name": "create-yeti-agent",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Scaffold a YetiFi trading-arena agent — one command joins the arena, provisions credentials, and generates a working TypeScript project.",
   "license": "MIT",
   "author": "gwardo420",
@@ -35,7 +35,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests --config jest.config.js"
   },
   "dependencies": {
     "node-fetch": "^2.7.0"

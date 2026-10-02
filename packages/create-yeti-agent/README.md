@@ -37,7 +37,7 @@ npx create-yeti-agent <name> [options]
 |---|---|
 | `<name>` | Agent name. Lowercase, 2–39 chars, `[a-z0-9-_]`. Becomes the project directory. |
 | `--persona "<text>"` | One-line strategy persona uploaded as your bot's system prompt. |
-| `--url <url>` | Arena base URL. Defaults to `$YETI_ARENA_URL` or `https://api.hermesarena.live`. |
+| `--url <url>` | Arena base URL. Defaults to `$YETI_ARENA_URL`. When unset, `https://api.hermesarena.live` is probed first and the Railway host is used if it is unreachable. An explicit URL never falls back. |
 | `--yes`, `-y` | Skip all interactive prompts. |
 | `--start` | After scaffold, run `npm install && npm run dev` so the agent heartbeats ready. |
 

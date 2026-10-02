@@ -16,7 +16,11 @@ from . import __version__
 PKG_NAME = "create-yeti-agent"
 SDK_HEADER = "x-yeti-sdk"
 SDK_HEADER_VALUE = f"{PKG_NAME}@{__version__}"
-DEFAULT_BASE_URL = os.environ.get("YETI_ARENA_URL", "https://api.hermesarena.live")
+PRIMARY_BASE_URL = "https://api.hermesarena.live"
+FALLBACK_BASE_URL = "https://hermes-arena-backend-production-f928.up.railway.app"
+PROBE_TIMEOUT_SEC = 5.0
+# Explicit URL from the environment (None -> probe PRIMARY_BASE_URL, fall back to Railway).
+DEFAULT_BASE_URL = os.environ.get("YETI_ARENA_URL") or None
 RUNTIME_PKG = "yetifi-arena"
 RUNTIME_VERSION = ">=0.1.2,<0.2.0"
 
@@ -53,6 +57,28 @@ def _get_json(url: str, *, timeout: float = 8.0) -> Dict[str, Any]:
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         raw = resp.read().decode("utf-8")
         return json.loads(raw) if raw else {}
+
+
+def probe_base(base_url: str, *, timeout: float = PROBE_TIMEOUT_SEC) -> Optional[str]:
+    """GET <base>/api/arena/manifest. Return None if healthy, else a reason string."""
+    try:
+        _get_json(f"{base_url.rstrip('/')}/api/arena/manifest", timeout=timeout)
+        return None
+    except urllib.error.HTTPError as e:
+        return f"HTTP {e.code}"
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
+        reason = getattr(e, "reason", None) or e
+        return str(reason)
+
+
+def resolve_base_url(explicit: Optional[str], *, probe=probe_base) -> Tuple[str, bool, Optional[str]]:
+    """Return (base_url, fell_back, reason). An explicit URL is used verbatim, never probed."""
+    if explicit:
+        return explicit.rstrip("/"), False, None
+    reason = probe(PRIMARY_BASE_URL)
+    if reason is None:
+        return PRIMARY_BASE_URL, False, None
+    return FALLBACK_BASE_URL, True, reason
 
 
 def _valid_name(name: str) -> Optional[str]:
@@ -212,10 +238,19 @@ def _start_agent(dest: Path) -> None:
 
 
 def main(argv: Optional[list] = None) -> int:
-    parser = argparse.ArgumentParser(prog=PKG_NAME, description="Scaffold a YetiFi arena agent (Python).")
+    parser = argparse.ArgumentParser(
+        prog=PKG_NAME,
+        description="Scaffold a YetiFi arena agent (Python).",
+        epilog=(
+            f"Default host: {PRIMARY_BASE_URL}. If it is unreachable (network/TLS error or non-2xx on "
+            f"/api/arena/manifest), {FALLBACK_BASE_URL} is used instead and written to ARENA_BASE_URL "
+            "in .env.local. An explicit --url (or $YETI_ARENA_URL) never falls back."
+        ),
+    )
     parser.add_argument("name", nargs="?", help="Agent name (lowercase, 2-39 chars)")
     parser.add_argument("--url", "--base-url", dest="base_url", default=DEFAULT_BASE_URL,
-                        help=f"Arena base URL (default: {DEFAULT_BASE_URL})")
+                        help=f"Arena base URL (default: {PRIMARY_BASE_URL}, with automatic fallback if unreachable; "
+                             "an explicit URL never falls back)")
     parser.add_argument("--persona", help="Custom strategy persona (overrides style persona text on join)")
     parser.add_argument(
         "--style",
@@ -241,6 +276,12 @@ def main(argv: Optional[list] = None) -> int:
     if dest.exists() and any(dest.iterdir()):
         print(f"Directory {dest} is not empty.", file=sys.stderr)
         return 2
+
+    explicit_url = bool(args.base_url)
+    base_url, fell_back, reason = resolve_base_url(args.base_url)
+    if fell_back:
+        print(f"\n  {PRIMARY_BASE_URL.split('://', 1)[1]} unreachable ({reason}), using {base_url}")
+    args.base_url = base_url
 
     print(f"\n→ Loading styles from {args.base_url}")
     styles, styles_source = fetch_styles(args.base_url)
@@ -278,6 +319,13 @@ def main(argv: Optional[list] = None) -> int:
         )
     except RuntimeError as e:
         print(f"✗ Join failed: {e}", file=sys.stderr)
+        return 1
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        hint = (
+            " Pass a different host with --url <url> (or set YETI_ARENA_URL)."
+            if explicit_url else ""
+        )
+        print(f"✗ Could not reach {args.base_url} ({getattr(e, 'reason', e)}).{hint}", file=sys.stderr)
         return 1
     agent_id = joined["agentId"]
     api_key = joined["apiKey"]

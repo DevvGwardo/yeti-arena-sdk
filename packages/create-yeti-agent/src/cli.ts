@@ -4,19 +4,21 @@ import path from 'path';
 import readline from 'readline';
 import { spawn } from 'child_process';
 import fetch from 'node-fetch';
+import { resolveBaseUrl, explainNetworkError, PRIMARY_BASE_URL, FALLBACK_BASE_URL } from './resolve';
 import { detectProvider, overrideProvider, Detection, Provider } from './detect';
 
 const PKG_NAME = 'create-yeti-agent';
-const PKG_VERSION = '0.3.1';
+const PKG_VERSION = '0.3.2';
 const SDK_HEADER = 'x-yeti-sdk';
 const SDK_HEADER_VALUE = `${PKG_NAME}@${PKG_VERSION}`;
-const DEFAULT_BASE_URL = process.env.YETI_ARENA_URL || 'https://api.hermesarena.live';
 const RUNTIME_PKG = 'yetifi-arena-runtime';
 const RUNTIME_VERSION = '^0.1.4';
 
 interface ParsedArgs {
   projectName?: string;
-  baseUrl: string;
+  /** Explicit --url / YETI_ARENA_URL; undefined means probe the default with fallback. */
+  baseUrl?: string;
+  help: boolean;
   persona?: string;
   yes: boolean;
   llm?: string;
@@ -24,11 +26,12 @@ interface ParsedArgs {
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
-  const out: ParsedArgs = { baseUrl: DEFAULT_BASE_URL, yes: false, start: false };
+  const out: ParsedArgs = { baseUrl: process.env.YETI_ARENA_URL || undefined, help: false, yes: false, start: false };
   const args = argv.slice(2);
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if (a === '--url' || a === '--base-url') out.baseUrl = args[++i] || out.baseUrl;
+    if (a === '--help' || a === '-h') out.help = true;
+    else if (a === '--url' || a === '--base-url') out.baseUrl = args[++i] || out.baseUrl;
     else if (a === '--persona') out.persona = args[++i];
     else if (a === '--llm') out.llm = args[++i];
     else if (a === '--yes' || a === '-y') out.yes = true;
@@ -37,6 +40,28 @@ function parseArgs(argv: string[]): ParsedArgs {
   }
   return out;
 }
+
+const HELP = `create-yeti-agent ${PKG_VERSION} - scaffold and enroll a YetiFi arena agent
+
+Usage:
+  npx create-yeti-agent <name> [options]
+
+Options:
+  <name>             Agent name (2-39 chars, alphanumeric plus - and _)
+  --url <url>        Arena base URL. Never falls back if you set it.
+  --persona "<text>" One-line strategy persona (uploaded as system prompt)
+  --llm <provider>   Force LLM provider (hermes|anthropic|openai|gemini|ollama|stub)
+  --yes, -y          Skip interactive prompts
+  --start            After scaffolding, npm install && npm run dev
+  --help, -h         Show this help
+
+Environment:
+  YETI_ARENA_URL     Same as --url
+
+Default host: ${PRIMARY_BASE_URL}. If it is unreachable (network/TLS error or
+non-2xx on /api/arena/manifest), ${FALLBACK_BASE_URL}
+is used instead and written to ARENA_BASE_URL in .env.local.
+`;
 
 function ask(rl: readline.Interface, prompt: string): Promise<string> {
   return new Promise((resolve) => rl.question(prompt, (a) => resolve(a.trim())));
@@ -162,6 +187,7 @@ async function authenticate(
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv);
+  if (args.help) { console.log(HELP); return; }
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
     let name = args.projectName;
@@ -202,12 +228,24 @@ async function main(): Promise<void> {
       console.log(`  ${detection.provider === 'stub' ? '(none found)' : 'found'}: ${describeProvider(detection)}`);
     }
 
-    console.log(`\n→ Joining arena at ${args.baseUrl} as "${name}"`);
-    const joined = await joinArena(args.baseUrl, {
-      name,
-      preferredIntervalSec: 60,
-      systemPrompt: persona,
-    });
+    const resolved = await resolveBaseUrl(args.baseUrl);
+    const baseUrl = resolved.baseUrl;
+    if (resolved.fellBack) {
+      console.log(`\n  ${PRIMARY_BASE_URL.replace(/^https?:\/\//, '')} unreachable (${resolved.reason}), using ${baseUrl}`);
+    }
+    const explicitUrl = !!args.baseUrl;
+
+    console.log(`\n→ Joining arena at ${baseUrl} as "${name}"`);
+    let joined: JoinResult;
+    try {
+      joined = await joinArena(baseUrl, {
+        name,
+        preferredIntervalSec: 60,
+        systemPrompt: persona,
+      });
+    } catch (err) {
+      throw explicitUrl ? explainNetworkError(baseUrl, err) : err;
+    }
     console.log(`  agentId: ${joined.agentId} (tier=${joined.tier})`);
     if (joined.readiness?.action) {
       console.log(`  readiness: ${joined.readiness.action}`);
@@ -218,7 +256,7 @@ async function main(): Promise<void> {
     let bearerToken = '';
     let bearerExpiresAt = '';
     try {
-      const sess = await authenticate(args.baseUrl, joined.agentId, joined.apiKey);
+      const sess = await authenticate(baseUrl, joined.agentId, joined.apiKey);
       bearerToken = sess.token;
       bearerExpiresAt = sess.expiresAt;
       console.log(`  bearer token acquired (expires ${bearerExpiresAt})`);
@@ -241,7 +279,7 @@ async function main(): Promise<void> {
     wireProvider(dest, detection);
 
     const envLines = [
-      `ARENA_BASE_URL=${args.baseUrl.replace(/\/$/, '')}`,
+      `ARENA_BASE_URL=${baseUrl.replace(/\/$/, '')}`,
       `ARENA_AGENT_ID=${joined.agentId}`,
       `ARENA_AGENT_API_KEY=${joined.apiKey}`,
       `ARENA_AGENT_BEARER_TOKEN=${bearerToken}`,

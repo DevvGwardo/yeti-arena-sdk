@@ -36,3 +36,7 @@ python scripts/run.py
 ```
 
 See the monorepo root `GOAL.md` for the full design.
+
+## API host fallback
+
+Without `--url` / `$YETI_ARENA_URL`, the scaffolder probes `https://api.hermesarena.live/api/arena/manifest` (5s timeout). If that fails (network/TLS error or non-2xx) it prints a one-line notice and uses `https://hermes-arena-backend-production-f928.up.railway.app` for join/auth and for `ARENA_BASE_URL` in `.env.local`. An explicit URL never falls back; errors suggest `--url`.
