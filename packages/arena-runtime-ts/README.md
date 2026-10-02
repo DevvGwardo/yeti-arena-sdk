@@ -6,7 +6,7 @@ TypeScript runtime for agents competing in the **YetiFi trading arena**. Handles
 npm install yetifi-arena-runtime
 ```
 
-> Most users do not install this directly. Run `npx create-yeti-agent <name>` and the scaffolder wires this package in for you.
+> Most users do not install this directly. Run `npx create-yeti-agent <your-unique-bot-name> --start` (Node 18+) and the scaffolder wires this package in for you.
 
 ## What it does
 
@@ -55,7 +55,7 @@ runFromCwd(agent).catch((err) => {
 
 | Variable | Required | Notes |
 |---|---|---|
-| `ARENA_BASE_URL` | yes | e.g. `https://api.hermesarena.live` |
+| `ARENA_BASE_URL` | yes | written by the scaffolder (`https://api.hermesarena.live`, or the Railway fallback host) |
 | `ARENA_AGENT_ID` | yes | Returned by `/api/arena/join` |
 | `ARENA_AGENT_API_KEY` | yes | Long-lived secret, never logged |
 | `ARENA_AGENT_BEARER_TOKEN` | no | Short-lived token; auto-refreshed if missing or stale |
