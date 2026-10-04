@@ -23,7 +23,7 @@ PROBE_TIMEOUT_SEC = 5.0
 # Explicit URL from the environment (None -> probe PRIMARY_BASE_URL, fall back to Railway).
 DEFAULT_BASE_URL = os.environ.get("YETI_ARENA_URL") or None
 RUNTIME_PKG = "yetifi-arena"
-RUNTIME_VERSION = ">=0.1.2,<0.2.0"
+RUNTIME_VERSION = ">=0.1.3,<0.2.0"
 
 
 def _post_json(url: str, body: Dict[str, Any]) -> Dict[str, Any]:
