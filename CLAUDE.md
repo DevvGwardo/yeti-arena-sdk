@@ -43,10 +43,8 @@ uv venv --python 3.11 .venv && uv pip install -e .
 ```
 
 `./test-all.sh` runs the TS tests, the Python runtime tests, and a Python
-scaffolder import smoke in one pass. It is the pre-publish pre-flight.
-
-CI (`.github/workflows/ci.yml`) runs typecheck + tests for TS and Python on every
-PR and on pushes to `main`. Keep it green.
+scaffolder import smoke in one pass. It is the pre-publish pre-flight, and it
+is what CI should run on every PR and on pushes to `main`.
 
 ## PR conventions
 
